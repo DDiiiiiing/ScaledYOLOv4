@@ -1,20 +1,14 @@
 #!/usr/bin/env python3  
 
-from ast import Str
 import rospy
 import cv2
 from sensor_msgs.msg import Image as msg_Image
 from std_msgs.msg import String as msg_String
 from cv_bridge import CvBridge, CvBridgeError
 import sys
-import numpy as np
-import pyrealsense2 as rs2
-if (not hasattr(rs2, 'intrinsics')):
-    import pyrealsense2.pyrealsense2 as rs2
 
 import os
 import time
-from pathlib import Path
 
 import cv2
 import torch
