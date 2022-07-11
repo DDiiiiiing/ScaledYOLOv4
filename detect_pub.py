@@ -39,7 +39,7 @@ class DetectYOLO:
             for r in result:
                 cls = r[0]
                 [x1, y1, x2, y2] = r[1:]
-                str+=str(cls)+' '+str(x1)+' '+str(y1)+' '+str(x2)+' '+str(y2)+'/'
+                str+=str(cls)+' '+str(x1)+','+str(y1)+','+str(x2)+','+str(y2)+'/'
             
             self.pub_img.publish(self.bridge.cv2_to_imgmsg(img_labeled))
             self.pub_result.publish(result_str)
@@ -67,7 +67,6 @@ def detect(frame, weights='./runs/best_yolov4-p5-result.pt', imgsz=640, conf_thr
         modelc.to(device).eval()
 
     # Set Dataloader
-    save_img = True
     dataset = LoadImages(frame, img_size=imgsz)
 
     # Get names and colors
@@ -75,7 +74,6 @@ def detect(frame, weights='./runs/best_yolov4-p5-result.pt', imgsz=640, conf_thr
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
     # Run inference
-    t0 = time.time()
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
     
@@ -101,7 +99,7 @@ def detect(frame, weights='./runs/best_yolov4-p5-result.pt', imgsz=640, conf_thr
         result=[]
         # Process detections
         for i, det in enumerate(pred):  # detections per image\
-            p, s, im0 = path, '', im0s
+            s, im0 = '', im0s
 
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
