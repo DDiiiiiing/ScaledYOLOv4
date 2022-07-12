@@ -113,8 +113,9 @@ def detect(frame, weights='./runs/best_yolov4-p5-result.pt', imgsz=640, conf_thr
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
 
                 # Write Result
-                for *xyxy, conf, cls in det:
-                    result.append([cls, *xyxy])
+                for xyxy, conf, cls in det:
+                    xyxy=list(xyxy)
+                    result.append([cls, xyxy])
                     label = '%s' % (names[int(cls)])
                     plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
 
