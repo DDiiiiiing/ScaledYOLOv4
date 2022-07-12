@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import rospy
-import cv2
 from sensor_msgs.msg import Image as msg_Image
 from std_msgs.msg import String as msg_String
-from cv_bridge import CvBridge, CvBridgeError
+import ros_numpy
 import sys
 
 import os
@@ -12,6 +11,7 @@ import time
 
 import cv2
 import torch
+import numpy as np
 from numpy import random
 
 from models.experimental import attempt_load
@@ -22,15 +22,14 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 class DetectYOLO:     
     def __init__(self,rgb_image_topic):
-        self.bridge = CvBridge()
         self.sub_rgb=rospy.Subscriber(rgb_image_topic,msg_Image,self.imageRGBCallback)
         self.pub_img=rospy.Publisher('/dsr/tray/yolo_img', msg_Image, queue_size=5)
         self.pub_result=rospy.Publisher('dsr/tray/yolo_result', msg_String, queue_size=5)
 
     def imageRGBCallback(self,Image):
         try:
-            cv_rgbimg=self.bridge.imgmsg_to_cv2(Image,"bgr8")
-            img_labeled, result = detect(cv_rgbimg)
+            img_msg=ros_numpy.numpify(Image).astype(np.uint8)
+            img_labeled, result = detect(img_msg)
             
             img_labeled_resize=cv2.resize(img_labeled, (640, 360))
             cv2.imshow("detected",img_labeled_resize)
@@ -41,10 +40,10 @@ class DetectYOLO:
                 [x1, y1, x2, y2] = r[1:]
                 str+=str(cls)+' '+str(x1)+','+str(y1)+','+str(x2)+','+str(y2)+'/'
             
-            self.pub_img.publish(self.bridge.cv2_to_imgmsg(img_labeled))
+            self.pub_img.publish(ros_numpy.msgify(img_labeled))
             self.pub_result.publish(result_str)
             # cv2.waitKey(1)
-        except CvBridgeError as e:
+        except Exception as e:
             print(e)
             return   
 
