@@ -3,7 +3,8 @@
 import rospy
 from sensor_msgs.msg import Image as msg_Image
 from std_msgs.msg import String as msg_String
-import ros_numpy
+# import ros_numpy
+from cv_bridge import CvBridge, CvBridgeError
 import sys
 
 import os
@@ -22,14 +23,15 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 class DetectYOLO:     
     def __init__(self,rgb_image_topic):
+        self.bridge = CvBridge()
         self.sub_rgb=rospy.Subscriber(rgb_image_topic,msg_Image,self.imageRGBCallback)
         self.pub_img=rospy.Publisher('/dsr/tray/yolo_img', msg_Image, queue_size=5)
         self.pub_result=rospy.Publisher('dsr/tray/yolo_result', msg_String, queue_size=5)
 
     def imageRGBCallback(self,Image):
         try:
-            img_msg=ros_numpy.numpify(Image).astype(np.uint8)
-            img_labeled, result = detect(img_msg)
+            cv_rgbimg=self.bridge.imgmsg_to_cv2(Image,"bgr8")
+            img_labeled, result = detect(cv_rgbimg)
             
             img_labeled_resize=cv2.resize(img_labeled, (640, 360))
             cv2.imshow("detected",img_labeled_resize)
@@ -40,14 +42,14 @@ class DetectYOLO:
                 [x1, y1, x2, y2] = r[1:]
                 str+=str(cls)+' '+str(x1)+','+str(y1)+','+str(x2)+','+str(y2)+'/'
             
-            self.pub_img.publish(ros_numpy.msgify(img_labeled))
+            self.pub_img.publish(self.bridge.cv2_to_imgmsg(img_labeled))
             self.pub_result.publish(result_str)
             # cv2.waitKey(1)
         except Exception as e:
             print(e)
             return   
 
-def detect(frame, weights='./runs/best_yolov4-p5-result.pt', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnostic_nms=False, augment=False):
+def detect(frame, weights='./runs/best_yolov4-csp-result.pt', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnostic_nms=False, augment=False):
     # Initialize
     device = select_device(dev) # select default device(device 0)
     half = device.type != 'cpu'  # half precision only supported on CUDA
