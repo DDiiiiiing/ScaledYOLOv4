@@ -5,8 +5,8 @@ from utils.general import *
 import torch
 from torch import nn
 
-from mish_cuda import MishCuda as Mish
-
+# from mish_cuda import MishCuda as Mish
+from torch.nn import Mish
 
 def make_divisible(v, divisor):
     # Function ensures all layers have a channel number that is divisible by 8
