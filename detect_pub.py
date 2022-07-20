@@ -31,10 +31,15 @@ class DetectYOLO:
     def imageRGBCallback(self,Image):
         try:
             cv_rgbimg=self.bridge.imgmsg_to_cv2(Image,"bgr8")
-            img_labeled, result = detect(cv_rgbimg)
+            cv2.imshow("ori", cv_rgbimg)
+
+            weight_path=os.path.dirname(os.path.abspath(__file__))
+            weight_path=weight_path + '/runs/exp0_yolov4-csp-results/weights/' + 'best_yolov4-csp-results.pt'
+            print(weight_path)
+            img_labeled, result = detect(cv_rgbimg, weight_path)
             
-            img_labeled_resize=cv2.resize(img_labeled, (640, 360))
-            cv2.imshow("detected",img_labeled_resize)
+            # img_labeled_resize=cv2.resize(img_labeled, (640, 360))
+            cv2.imshow("detected",img_labeled)
 
             result_str=''
             for r in result:
@@ -44,12 +49,12 @@ class DetectYOLO:
             
             self.pub_img.publish(self.bridge.cv2_to_imgmsg(img_labeled))
             self.pub_result.publish(result_str)
-            # cv2.waitKey(1)
+            cv2.waitKey(1)
         except Exception as e:
             print(e)
             return   
 
-def detect(frame, weights='./runs/best_yolov4-csp-result.pt', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnostic_nms=False, augment=False):
+def detect(frame, weights, imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnostic_nms=False, augment=False):
     # Initialize
     device = select_device(dev) # select default device(device 0)
     half = device.type != 'cpu'  # half precision only supported on CUDA

@@ -3,10 +3,10 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import sys, os
 
 from models.common import Conv, DWConv
 from utils.google_utils import attempt_download
-
 
 class CrossConv(nn.Module):
     # Cross Convolution Downsample
@@ -20,7 +20,6 @@ class CrossConv(nn.Module):
 
     def forward(self, x):
         return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
-
 
 class C3(nn.Module):
     # Cross Convolution CSP
