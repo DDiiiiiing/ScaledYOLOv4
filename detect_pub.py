@@ -16,29 +16,33 @@ import numpy as np
 from numpy import random
 
 from models.experimental import attempt_load
-from utils.datasets import LoadImages
+from utils.datasets import LoadImages, letterbox
 from utils.general import (
     check_img_size, non_max_suppression, apply_classifier, scale_coords, xyxy2xywh, plot_one_box, strip_optimizer)
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
+
+
 class DetectYOLO:     
-    def __init__(self,rgb_image_topic):
+    def __init__(self,rgb_image_topic, img_size=732):
         self.bridge = CvBridge()
         self.sub_rgb=rospy.Subscriber(rgb_image_topic,msg_Image,self.imageRGBCallback)
         self.pub_img=rospy.Publisher('/dsr/tray/yolo_img', msg_Image, queue_size=5)
         self.pub_result=rospy.Publisher('dsr/tray/yolo_result', msg_String, queue_size=5)
 
-    def imageRGBCallback(self,Image):
+        self.img_size = img_size
+        self.imgs = []
+
+    def imageRGBCallback(self,Image): 
         try:
             cv_rgbimg=self.bridge.imgmsg_to_cv2(Image,"bgr8")
             cv2.imshow("ori", cv_rgbimg)
 
+            self.imgs.append(cv_rgbimg)
             weight_path=os.path.dirname(os.path.abspath(__file__))
             weight_path=weight_path + '/runs/exp0_yolov4-csp-results/weights/' + 'best_yolov4-csp-results.pt'
-            print(weight_path)
-            img_labeled, result = detect(cv_rgbimg, weight_path)
             
-            # img_labeled_resize=cv2.resize(img_labeled, (640, 360))
+            img_labeled_resize=cv2.resize(img_labeled, (640, 360))
             cv2.imshow("detected",img_labeled)
 
             result_str=''
