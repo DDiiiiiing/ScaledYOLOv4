@@ -37,11 +37,11 @@ def detect(save_img=False):
         model.half()  # to FP16
 
     # Second-stage classifier
-    classify = False
-    if classify:
-        modelc = load_classifier(name='resnet101', n=2)  # initialize
-        modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model'])  # load weights
-        modelc.to(device).eval()
+    # classify = False
+    # if classify:
+    #     modelc = load_classifier(name='resnet101', n=2)  # initialize
+    #     modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model'])  # load weights
+    #     modelc.to(device).eval()
 
     # Set Dataloader
     vid_path, vid_writer = None, None
@@ -61,25 +61,32 @@ def detect(save_img=False):
     t0 = time.time()
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
+    print('`', torch.cuda.memory_allocated()/1024**2)
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
+        print('q', torch.cuda.memory_allocated()/1024**2)
+        
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
-
+        print('w', torch.cuda.memory_allocated()/1024**2)
+        
         # Inference
         t1 = time_synchronized()
         pred = model(img, augment=opt.augment)[0]
-
+        print('e', torch.cuda.memory_allocated()/1024**2)
+        
         # Apply NMS
         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
         t2 = time_synchronized()
-
+        print('r', torch.cuda.memory_allocated()/1024**2)
+        
         # Apply Classifier
-        if classify:
-            pred = apply_classifier(pred, modelc, img, im0s)
-
+        # if classify:
+        #     pred = apply_classifier(pred, modelc, img, im0s)
+        # print('t', torch.cuda.memory_allocated()/1024**2)
+        
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -94,7 +101,6 @@ def detect(save_img=False):
             if det is not None and len(det):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
-
                 # Print results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
@@ -110,7 +116,6 @@ def detect(save_img=False):
                     if save_img or view_img:  # Add bbox to image
                         label = '%s' % (names[int(cls)])
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
-
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
 

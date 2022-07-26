@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
+from threading import Thread
+
 import rospy
 from sensor_msgs.msg import Image as msg_Image
 from std_msgs.msg import String as msg_String
-# import ros_numpy
 from cv_bridge import CvBridge, CvBridgeError
 import sys
 
@@ -21,63 +22,82 @@ from utils.general import (
     check_img_size, non_max_suppression, apply_classifier, scale_coords, xyxy2xywh, plot_one_box, strip_optimizer)
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
+class LoadTopic:  # for inference
+    def __init__(self, rgb_image_topic, img_size=640):
+        self.img_size = img_size
+        self.img=None
 
-
-class DetectYOLO:     
-    def __init__(self,rgb_image_topic, img_size=732):
         self.bridge = CvBridge()
         self.sub_rgb=rospy.Subscriber(rgb_image_topic,msg_Image,self.imageRGBCallback)
         self.pub_img=rospy.Publisher('/dsr/tray/yolo_img', msg_Image, queue_size=5)
         self.pub_result=rospy.Publisher('dsr/tray/yolo_result', msg_String, queue_size=5)
 
-        self.img_size = img_size
-        self.imgs = []
+    def __iter__(self):
+        self.count = -1
+        return self
+
+    def __next__(self):
+        self.count += 1
+        if cv2.waitKey(1) == ord('q'):  # q to quit
+            cv2.destroyAllWindows()
+            raise StopIteration
+
+        # Read frame
+        timeout=20
+        t1=time.time()
+        while self.img is None and time.time()-t1<timeout:
+            rospy.logwarn('no image topic')
+            rospy.sleep(1)
+        if self.img is None:
+            rospy.logwarn('timeout!!')
+            raise StopIteration
+
+        img0 = self.img
+        self.img = None
+        img_path = 'image topic'
+
+        # Padded resize
+        img = letterbox(img0, new_shape=self.img_size)[0]
+
+        # Convert
+        img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+        img = np.ascontiguousarray(img)
+
+        return img_path, img, img0, None
+
+    def __len__(self):
+        return 0
 
     def imageRGBCallback(self,Image): 
         try:
             cv_rgbimg=self.bridge.imgmsg_to_cv2(Image,"bgr8")
-            cv2.imshow("ori", cv_rgbimg)
-
-            self.imgs.append(cv_rgbimg)
-            weight_path=os.path.dirname(os.path.abspath(__file__))
-            weight_path=weight_path + '/runs/exp0_yolov4-csp-results/weights/' + 'best_yolov4-csp-results.pt'
-            
-            img_labeled_resize=cv2.resize(img_labeled, (640, 360))
-            cv2.imshow("detected",img_labeled)
-
-            result_str=''
-            for r in result:
-                cls = r[0]
-                [x1, y1, x2, y2] = r[1:]
-                str+=str(cls)+' '+str(x1)+','+str(y1)+','+str(x2)+','+str(y2)+'/'
-            
-            self.pub_img.publish(self.bridge.cv2_to_imgmsg(img_labeled))
-            self.pub_result.publish(result_str)
-            cv2.waitKey(1)
+            # self.img=cv_rgbimg
+            self.img=cv2.resize(cv_rgbimg, (720,480))
+        except CvBridgeError as e:
+            print(e)
+            self.img=None
+            return
         except Exception as e:
             print(e)
-            return   
+            self.img=None
+            return
 
-def detect(frame, weights, imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnostic_nms=False, augment=False):
+def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnostic_nms=False, augment=False):
     # Initialize
     device = select_device(dev) # select default device(device 0)
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
+    if weights == '':
+        weight_path=os.path.dirname(os.path.abspath(__file__))+ '/runs/exp0_yolov4-csp-results/weights/' + 'best_yolov4-csp-results.pt'        
+    
     # Load model
-    model = attempt_load(weights, map_location=device)  # load FP32 model
+    model = attempt_load(weight_path, map_location=device)  # load FP32 model
     imgsz = check_img_size(imgsz, s=model.stride.max())  # check img_size
     if half:
         model.half()  # to FP16
 
-    # Second-stage classifier
-    classify = False
-    if classify:
-        modelc = load_classifier(name='resnet101', n=2)  # initialize
-        modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model'])  # load weights
-        modelc.to(device).eval()
-
     # Set Dataloader
-    dataset = LoadImages(frame, img_size=imgsz)
+    global dataset
 
     # Get names and colors
     names = model.module.names if hasattr(model, 'module') else model.names
@@ -87,63 +107,90 @@ def detect(frame, weights, imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agn
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
     
-    for path, img, im0s, vid_cap in dataset:
-        img = torch.from_numpy(img).to(device)
-        img = img.half() if half else img.float()  # uint8 to fp16/32
-        img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if img.ndimension() == 3:
-            img = img.unsqueeze(0)
+    with torch.no_grad():
+        for path, img, im0s, vid_cap in dataset:
+            # cv2.imshow('im0', im0s)
+            # cv2.waitKey(0)
+            # rospy.logwarn(torch.cuda.memory_allocated()/1024**2)
+            img = torch.from_numpy(img).to(device)
+            img = img.half() if half else img.float()  # uint8 to fp16/32
+            img /= 255.0  # 0 - 255 to 0.0 - 1.0
+            if img.ndimension() == 3:
+                img = img.unsqueeze(0)
+            
+            # Inference
+            t1 = time_synchronized()
+            pred = model(img, augment=augment)[0]
+            
+            # Apply NMS
+            pred = non_max_suppression(pred, conf_thres, iou_thres, agnostic=agnostic_nms)
+            t2 = time_synchronized()
+            
+            # Apply Classifier
+            # if classify:
+            #     pred = apply_classifier(pred, modelc, img, im0s)
 
-        # Inference
-        t1 = time_synchronized()
-        pred = model(img, augment=augment)[0]
+            # Process detections
+            for det in pred:  # detections per image
+                s, im0 = '', im0s
 
-        # Apply NMS
-        pred = non_max_suppression(pred, conf_thres, iou_thres, agnostic=agnostic_nms)
-        t2 = time_synchronized()
+                s += '%gx%g ' % img.shape[2:]  # print string
+                gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+                if det is not None and len(det):
+                    # Rescale boxes from img_size to im0 size
+                    det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
-        # Apply Classifier
-        if classify:
-            pred = apply_classifier(pred, modelc, img, im0s)
+                    # Print results
+                    for c in det[:, -1].unique():
+                        n = (det[:, -1] == c).sum()  # detections per class
+                        s += '%g %ss, ' % (n, names[int(c)])  # add to string
 
-        result=[]
-        # Process detections
-        for i, det in enumerate(pred):  # detections per image\
-            s, im0 = '', im0s
+                    # Write results
+                    detection_result = ''
+                    for *xyxy, conf, cls in det:
+                        # write result
+                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                        detection_result += ('%g ' * 5 + '\n') % (cls, *xywh) # label format
 
-            s += '%gx%g ' % img.shape[2:]  # print string
-            gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
-            if det is not None and len(det):
-                # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                        label = '%s' % (names[int(cls)])
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+                    rospy.loginfo(detection_result)
+                    dataset.pub_result.publish(detection_result)
+            cv2.imshow('detection', im0)
+            cv2.waitKey(1)
 
-                # Print results
-                for c in det[:, -1].unique():
-                    n = (det[:, -1] == c).sum()  # detections per class
-                    s += '%g %ss, ' % (n, names[int(c)])  # add to string
-
-                # Write Result
-                for *xyxy, conf, cls in det:
-                    result.append([cls, *xyxy])
-                    label = '%s' % (names[int(cls)])
-                    plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
-
-        # Print time (inference + NMS)
-        print('%sDone. (%.3fs)' % (s, t2 - t1))
-        
-        return im0, result
+    # Print time (inference + NMS)
+    # print('%sDone. (%.3fs)' % (s, t2 - t1))
+    
+    return im0
 
 def main():
-    # rgb_image_topic= "/camera/color/image_raw"
-    rgb_image_topic= "/eye_to_hand_cam/color/image_raw"
-    listner = DetectYOLO(rgb_image_topic)
+    global dataset
+    rgb_image_topic= "/camera/color/image_raw"
+    # rgb_image_topic= "/eye_to_hand_cam/color/image_raw"
+    dataset = LoadTopic(rgb_image_topic)
     try:
         rospy.spin()
     except KeyboardInterrupt:
         print("Shutting down")
     cv2.destroyAllWindows()
 
-if __name__ == '__main__':
+#####################
+global dataset
+
+if __name__=='__main__':
     node_name = os.path.basename(sys.argv[0]).split('.')[0]
     rospy.init_node(node_name)
-    main()
+    rospy.loginfo("press q to quit")
+    
+    # main()
+    # detect()
+
+    th1 = Thread(target=main)
+    rospy.sleep(3) # wait until node starts
+    th2 = Thread(target=detect, args=('', 416, 0.4, 0.5, '', False, False), daemon=True)
+
+    th1.start()
+    th2.start()
+    th1.join()
+    th2.join()
