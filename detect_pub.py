@@ -88,7 +88,7 @@ def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnosti
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     if weights == '':
-        weight_path=os.path.dirname(os.path.abspath(__file__))+ '/runs/exp0_yolov4-csp-results/weights/' + 'best_yolov4-csp-results.pt'        
+        weight_path=os.path.dirname(os.path.abspath(__file__))+ '/runs/exp1_yolov4-csp-results/weights/' + 'best_yolov4-csp-results.pt'        
     
     # Load model
     model = attempt_load(weight_path, map_location=device)  # load FP32 model
