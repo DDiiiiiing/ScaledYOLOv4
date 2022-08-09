@@ -87,7 +87,9 @@ def train(hyp, opt, device, tb_writer=None):
         else:
             pg0.append(v)  # all else
 
-    if opt.adam:
+    if opt.optim in ['adamW', 'adamw', 'ADAMW', 'AdamW']:
+        optimizer = optim.AdamW(pg0, lr=0.0025, weight_decay=0.01)
+    elif opt.optim in ['adam', 'ADAM', 'Adam']:
         optimizer = optim.Adam(pg0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
     else:
         optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
@@ -100,7 +102,9 @@ def train(hyp, opt, device, tb_writer=None):
     # Scheduler https://arxiv.org/pdf/1812.01187.pdf
     # https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#OneCycleLR
     lf = lambda x: (((1 + math.cos(x * math.pi / epochs)) / 2) ** 1.0) * 0.8 + 0.2  # cosine
-    scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
+    # scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
+    steps_per_epoch = 500
+    scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=[0.00025, 0.00025, 0.000025], pct_start=0.033, steps_per_epoch=steps_per_epoch, epochs=epochs//steps_per_epoch)
     # plot_lr_scheduler(optimizer, scheduler, epochs)
 
     # Resume
@@ -188,7 +192,7 @@ def train(hyp, opt, device, tb_writer=None):
     # nw = min(nw, (epochs - start_epoch) / 2 * nb)  # limit warmup to < 1/2 of training
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
-    scheduler.last_epoch = start_epoch - 1  # do not move
+    # scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = amp.GradScaler(enabled=cuda)
     if rank in [0, -1]:
         print('Image sizes %g train, %g test' % (imgsz, imgsz_test))
@@ -393,7 +397,8 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
-    parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
+    # parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
+    parser.add_argument('--optim', type=str, default='SGD', help='SGD or Adam or AdamW')
     parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
     parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
     parser.add_argument('--logdir', type=str, default='runs/', help='logging directory')
