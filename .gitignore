@@ -2,3 +2,4 @@
 inference/
 runs/
 .vscode/
+*.png

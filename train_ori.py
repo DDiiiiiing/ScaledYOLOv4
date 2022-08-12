@@ -23,7 +23,7 @@ from utils.datasets import create_dataloader
 from utils.general import (
     check_img_size, torch_distributed_zero_first, labels_to_class_weights, plot_labels, check_anchors,
     labels_to_image_weights, compute_loss, plot_images, fitness, strip_optimizer, plot_results,
-    get_latest_run, check_git_status, check_file, increment_dir, print_mutation, plot_evolution, plot_lr_scheduler)
+    get_latest_run, check_git_status, check_file, increment_dir, print_mutation, plot_evolution)
 from utils.google_utils import attempt_download
 from utils.torch_utils import init_seeds, ModelEMA, select_device, intersect_dicts
 
@@ -87,9 +87,7 @@ def train(hyp, opt, device, tb_writer=None):
         else:
             pg0.append(v)  # all else
 
-    if opt.optim in ['adamW', 'adamw', 'ADAMW', 'AdamW']:
-        optimizer = optim.AdamW(pg0, weight_decay=0.01)
-    elif opt.optim in ['adam', 'ADAM', 'Adam']:
+    if opt.adam:
         optimizer = optim.Adam(pg0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
     else:
         optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
@@ -103,9 +101,7 @@ def train(hyp, opt, device, tb_writer=None):
     # https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#OneCycleLR
     lf = lambda x: (((1 + math.cos(x * math.pi / epochs)) / 2) ** 1.0) * 0.8 + 0.2  # cosine
     scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
-    # steps_per_epoch = 500
-    # scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=[0.00025, 0.00025, 0.000025], pct_start=0.033, steps_per_epoch=steps_per_epoch, epochs=epochs//steps_per_epoch)
-    plot_lr_scheduler(optimizer, scheduler, epochs)
+    # plot_lr_scheduler(optimizer, scheduler, epochs)
 
     # Resume
     start_epoch, best_fitness = 0, 0.0
@@ -397,8 +393,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
-    # parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
-    parser.add_argument('--optim', type=str, default='SGD', help='SGD or Adam or AdamW')
+    parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
     parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
     parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
     parser.add_argument('--logdir', type=str, default='runs/', help='logging directory')
