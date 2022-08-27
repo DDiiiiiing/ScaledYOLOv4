@@ -43,7 +43,7 @@ class LoadTopic:  # for inference
             raise StopIteration
 
         # Read frame
-        timeout=20
+        timeout=5
         t1=time.time()
         while self.img is None and time.time()-t1<timeout:
             rospy.logwarn('no image topic')
@@ -88,7 +88,7 @@ def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnosti
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     if weights == '':
-        weight_path=os.path.dirname(os.path.abspath(__file__))+ '/runs/exp1_yolov4-csp-results/weights/' + 'best_yolov4-csp-results.pt'        
+        weight_path=os.path.dirname(os.path.abspath(__file__))+ '/runs/1000epoch/weights/' + 'best_yolov4-csp-results.pt'
     
     # Load model
     model = attempt_load(weight_path, map_location=device)  # load FP32 model
@@ -166,7 +166,8 @@ def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnosti
 
 def main():
     global dataset
-    rgb_image_topic= "/camera/color/image_raw"
+    # rgb_image_topic= "/camera/color/image_raw"
+    rgb_image_topic= "/usb_cam/image_raw"
     # rgb_image_topic= "/eye_to_hand_cam/color/image_raw"
     dataset = LoadTopic(rgb_image_topic)
     try:
@@ -183,9 +184,6 @@ if __name__=='__main__':
     rospy.init_node(node_name)
     rospy.loginfo("press q to quit")
     
-    # main()
-    # detect()
-
     th1 = Thread(target=main)
     rospy.sleep(3) # wait until node starts
     th2 = Thread(target=detect, args=('', 416, 0.4, 0.5, '', False, False), daemon=True)

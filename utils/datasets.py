@@ -90,7 +90,6 @@ class LoadImages:  # for inference
 
         self.img_size = img_size
         self.files = images + videos
-        self.img = None
         self.nf = ni + nv  # number of files
         self.video_flag = [False] * ni + [True] * nv
         self.mode = 'images'
@@ -100,15 +99,6 @@ class LoadImages:  # for inference
             self.cap = None
         assert self.nf > 0, 'No images or videos found in %s. Supported formats are:\nimages: %s\nvideos: %s' % \
                             (p, img_formats, vid_formats)
-    
-    # def __init__(self, img, img_size=640):
-    #     self.img_size = img_size
-    #     self.files = None
-    #     self.img = img
-    #     self.nf = 1
-    #     self.video_flag = [False]
-    #     self.mode = 'images'
-    #     self.cap = None
 
     def __iter__(self):
         self.count = 0
@@ -139,10 +129,7 @@ class LoadImages:  # for inference
         else:
             # Read image
             self.count += 1
-            if self.img == None:
-                img0 = cv2.imread(path)  # BGR
-            else:
-                img0 = self.img
+            img0 = cv2.imread(path)  # BGR
             assert img0 is not None, 'Image Not Found ' + path
             print('image %g/%g %s: ' % (self.count, self.nf, path), end='')
 

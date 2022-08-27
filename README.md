@@ -2,6 +2,10 @@
 
 This is the implementation of "[Scaled-YOLOv4: Scaling Cross Stage Partial Network](https://arxiv.org/abs/2011.08036)" using PyTorch framwork.
 
+* [YOLOv4-CSP](https://github.com/WongKinYiu/ScaledYOLOv4/tree/yolov4-csp)
+* [YOLOv4-tiny](https://github.com/WongKinYiu/ScaledYOLOv4/tree/yolov4-tiny)
+* [YOLOv4-large](https://github.com/WongKinYiu/ScaledYOLOv4/tree/yolov4-large)
+
 | Model | Test Size | AP<sup>test</sup> | AP<sub>50</sub><sup>test</sup> | AP<sub>75</sub><sup>test</sup> | AP<sub>S</sub><sup>test</sup> | AP<sub>M</sub><sup>test</sup> | AP<sub>L</sub><sup>test</sup> | batch1 throughput |
 | :-- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | 
 | **YOLOv4-P5** | 896 | **51.4%** | **69.9%** | **56.3%** | **33.1%** | **55.4%** | **62.4%** | 41 *fps* |
@@ -18,13 +22,23 @@ This is the implementation of "[Scaled-YOLOv4: Scaling Cross Stage Partial Netwo
 | :-- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | **YOLOv4-P5** | 896 | **51.2%** | **69.8%** | **56.2%** | **35.0%** | **56.2%** | **64.0%** | [`yolov4-p5.pt`](https://drive.google.com/file/d/1aXZZE999sHMP1gev60XhNChtHPRMH3Fz/view?usp=sharing) |
 | **YOLOv4-P5** | TTA | **52.5%** | **70.2%** | **57.8%** | **38.5%** | **57.2%** | **64.0%** | - |
+| **YOLOv4-P5** (+BoF) | 896 | **51.7%** | **70.3%** | **56.7%** | **35.9%** | **56.7%** | **64.3%** | [`yolov4-p5_.pt`](https://drive.google.com/file/d/15CL05ZufFk2krbRS993fqlG40Wb0HTyr/view?usp=sharing) |
+| **YOLOv4-P5** (+BoF) | TTA | **52.8%** | **70.6%** | **58.3%** | **38.8%** | **57.4%** | **64.4%** | - |
 |  |  |  |  |  |  |  |  |
 | **YOLOv4-P6** | 1280 | **53.9%** | **72.0%** | **59.0%** | **39.3%** | **58.3%** | **66.6%** | [`yolov4-p6.pt`](https://drive.google.com/file/d/1aB7May8oPYzBqbgwYSZHuATPXyxh9xnf/view?usp=sharing) |
 | **YOLOv4-P6** | TTA | **54.4%** | **72.3%** | **59.6%** | **39.8%** | **58.9%** | **67.6%** | - |
+| **YOLOv4-P6** (+BoF) | 1280 | **54.4%** | **72.7%** | **59.5%** | **39.5%** | **58.9%** | **67.3%** | [`yolov4-p6_.pt`](https://drive.google.com/file/d/1Q8oG3lBVVoS0-UwNOBsDsPkq9VKs9UcC/view?usp=sharing) |
+| **YOLOv4-P6** (+BoF) | TTA | **54.8%** | **72.6%** | **60.0%** | **40.6%** | **59.1%** | **68.2%** | - |
+| **YOLOv4-P6** (+BoF*) | 1280 | **54.7%** | **72.9%** | **60.0%** | **39.4%** | **59.2%** | **68.3%** |  |
+| **YOLOv4-P6** (+BoF*) | TTA | **55.3%** | **73.2%** | **60.8%** | **40.5%** | **59.9%** | **69.4%** | - |
 |  |  |  |  |  |  |  |  |
 | **YOLOv4-P7** | 1536 | **55.0%** | **72.9%** | **60.2%** | **39.8%** | **59.9%** | **68.4%** | [`yolov4-p7.pt`](https://drive.google.com/file/d/18fGlzgEJTkUEiBG4hW00pyedJKNnYLP3/view?usp=sharing)  |
 | **YOLOv4-P7** | TTA | **55.5%** | **72.9%** | **60.8%** | **41.1%** | **60.3%** | **68.9%** | - |
 |  |  |  |  |  |  |  |  |
+
+| Model | Test Size | AP<sup>val</sup> | AP<sub>50</sub><sup>val</sup> | AP<sub>75</sub><sup>val</sup> | AP<sub>S</sub><sup>val</sup> | AP<sub>M</sub><sup>val</sup> | AP<sub>L</sub><sup>val</sup> |
+| :-- | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| **YOLOv4-P6-attention** | 1280 | **54.3%** | **72.3%** | **59.6%** | **38.7%** | **58.9%** | **66.6%** |
 
 ## Installation
 
@@ -32,35 +46,14 @@ This is the implementation of "[Scaled-YOLOv4: Scaling Cross Stage Partial Netwo
 # create the docker container, you can change the share memory size if you have more.
 nvidia-docker run --name yolov4_csp -it -v your_coco_path/:/coco/ -v your_code_path/:/yolo --shm-size=64g nvcr.io/nvidia/pytorch:20.06-py3
 
-# install mish-cuda, if you use different pytorch version, you could try https://github.com/JunnYu/mish-cuda
+# install mish-cuda, if you use different pytorch version, you could try https://github.com/thomasbrandon/mish-cuda
 cd /
-git clone https://github.com/thomasbrandon/mish-cuda
+git clone https://github.com/JunnYu/mish-cuda
 cd mish-cuda
 python setup.py build install
 
 # go to code folder
 cd /yolo
-```
-
-For using pre-trained models:
-```
-cd /yolo
-git clone https://github.com/thomasbrandon/mish-cuda mc
-cd mc
-
-# change all of name which is mish_cuda to mish_mish and build.
-# 1. mc/src/mish_cuda -> mc/src/mish_mish
-# 2. mc/csrc/mish_cuda.cpp -> mc/csrc/mish_mish.cpp
-# 3. in mc/setup.py
-#   3.1 line 5 -> 'csrc/mish_mish.cpp'
-#   3.2 line 11 -> name='mish_mish'
-#   3.3 line 20 -> 'mish_mish._C'
-
-python setup.py build
-# rename mc/build/lib.xxx folder to mc/build/lib
-
-# modify import in models/common.py
-# line 7 -> from mc.build.lib.mish_mish import MishCuda as Mish
 ```
 
 ## Testing
@@ -139,10 +132,23 @@ python -m torch.distributed.launch --nproc_per_node 4 train.py --batch-size 64 -
 ## Citation
 
 ```
-@article{wang2020scaled,
-  title={{Scaled-YOLOv4}: Scaling Cross Stage Partial Network},
-  author={Wang, Chien-Yao and Bochkovskiy, Alexey and Liao, Hong-Yuan Mark},
-  journal={arXiv preprint arXiv:2011.08036},
-  year={2020}
+@InProceedings{Wang_2021_CVPR,
+    author    = {Wang, Chien-Yao and Bochkovskiy, Alexey and Liao, Hong-Yuan Mark},
+    title     = {{Scaled-YOLOv4}: Scaling Cross Stage Partial Network},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    month     = {June},
+    year      = {2021},
+    pages     = {13029-13038}
 }
 ```
+
+## Acknowledgements
+
+<details><summary> <b>Expand</b> </summary>
+
+* [https://github.com/AlexeyAB/darknet](https://github.com/AlexeyAB/darknet)
+* [https://github.com/WongKinYiu/PyTorch_YOLOv4](https://github.com/WongKinYiu/PyTorch_YOLOv4)
+* [https://github.com/ultralytics/yolov3](https://github.com/ultralytics/yolov3)
+* [https://github.com/ultralytics/yolov5](https://github.com/ultralytics/yolov5)
+
+</details>
