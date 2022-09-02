@@ -29,8 +29,8 @@ class LoadTopic:  # for inference
 
         self.bridge = CvBridge()
         self.sub_rgb=rospy.Subscriber(rgb_image_topic,msg_Image,self.imageRGBCallback)
-        self.pub_img=rospy.Publisher('/dsr/tray/yolo_img', msg_Image, queue_size=5)
-        self.pub_result=rospy.Publisher('dsr/tray/yolo_result', msg_String, queue_size=5)
+        self.pub_img=rospy.Publisher('/dsr_tray/yolo_img', msg_Image, queue_size=5)
+        self.pub_result=rospy.Publisher('dsr_tray/yolo_result', msg_String, queue_size=5)
 
     def __iter__(self):
         self.count = -1
@@ -43,7 +43,7 @@ class LoadTopic:  # for inference
             raise StopIteration
 
         # Read frame
-        timeout=5
+        timeout=1
         t1=time.time()
         while self.img is None and time.time()-t1<timeout:
             rospy.logwarn('no image topic')
@@ -71,8 +71,7 @@ class LoadTopic:  # for inference
     def imageRGBCallback(self,Image): 
         try:
             cv_rgbimg=self.bridge.imgmsg_to_cv2(Image,"bgr8")
-            # self.img=cv_rgbimg
-            self.img=cv2.resize(cv_rgbimg, (720,480))
+            self.img=cv_rgbimg
         except CvBridgeError as e:
             print(e)
             self.img=None
@@ -88,7 +87,7 @@ def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnosti
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     if weights == '':
-        weight_path=os.path.dirname(os.path.abspath(__file__))+ '/runs/1000epoch/weights/' + 'best_yolov4-csp-results.pt'
+        weight_path=os.path.dirname(os.path.abspath(__file__))+ '/runs/exp11_yolov4-csp-results/weights/' + 'best_yolov4-csp-results.pt'
     
     # Load model
     model = attempt_load(weight_path, map_location=device)  # load FP32 model
@@ -150,10 +149,10 @@ def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnosti
                     for *xyxy, conf, cls in det:
                         # write result
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        detection_result += ('%g ' * 5 + '\n') % (cls, *xywh) # label format
-
+                        # detection_result += ('%g ' * 5 + '\n') % (cls, *xywh) # label format
+                        detection_result += ('%g ' * 5 + '\n') % (cls, *xyxy) # label format
                         label = '%s' % (names[int(cls)])
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2, rect_thickness=1)
                     rospy.loginfo(detection_result)
                     dataset.pub_result.publish(detection_result)
             cv2.imshow('detection', im0)
@@ -166,8 +165,8 @@ def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnosti
 
 def main():
     global dataset
-    # rgb_image_topic= "/camera/color/image_raw"
-    rgb_image_topic= "/usb_cam/image_raw"
+    rgb_image_topic= "/camera/color/image_raw"
+    # rgb_image_topic= "/usb_cam/image_raw"
     # rgb_image_topic= "/eye_to_hand_cam/color/image_raw"
     dataset = LoadTopic(rgb_image_topic)
     try:
