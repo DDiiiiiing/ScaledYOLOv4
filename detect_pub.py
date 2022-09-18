@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 from threading import Thread
+from unittest import result
 
 import rospy
-from sensor_msgs.msg import Image as msg_Image
-from std_msgs.msg import String as msg_String
+from sensor_msgs.msg import Image as msgImage
+from std_msgs.msg import String as msgString
+from scaledyolo.msg import Yolo as msgYolo
 from cv_bridge import CvBridge, CvBridgeError
 import sys
 
@@ -28,9 +30,10 @@ class LoadTopic:  # for inference
         self.img=None
 
         self.bridge = CvBridge()
-        self.sub_rgb=rospy.Subscriber(rgb_image_topic,msg_Image,self.imageRGBCallback)
-        self.pub_img=rospy.Publisher('/dsr_tray/yolo_img', msg_Image, queue_size=5)
-        self.pub_result=rospy.Publisher('dsr_tray/yolo_result', msg_String, queue_size=5)
+        self.sub_rgb=rospy.Subscriber(rgb_image_topic,msgImage,self.imageRGBCallback)
+        self.pub_yolo = rospy.Publisher('/dsr_tray/yolo_result', msgYolo, queue_size=5)
+
+        self.yolo=msgYolo()
 
     def __iter__(self):
         self.count = -1
@@ -108,6 +111,7 @@ def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnosti
     
     with torch.no_grad():
         for path, img, im0s, vid_cap in dataset:
+            dataset.yolo.image=dataset.bridge.cv2_to_imgmsg(im0s)
             # cv2.imshow('im0', im0s)
             # cv2.waitKey(0)
             # rospy.logwarn(torch.cuda.memory_allocated()/1024**2)
@@ -154,14 +158,19 @@ def detect(weights='', imgsz=640, conf_thres=0.4, iou_thres=0.5, dev='', agnosti
                         label = '%s' % (names[int(cls)])
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2, rect_thickness=1)
                     rospy.loginfo(detection_result)
-                    dataset.pub_result.publish(detection_result)
+                    
+                    result_str = msgString()
+                    result_str.data= detection_result
+                    dataset.yolo.string=result_str
+                    
+                    dataset.pub_yolo.publish(dataset.yolo) #publish original image to find handle
             cv2.imshow('detection', im0)
             cv2.waitKey(1)
 
     # Print time (inference + NMS)
     # print('%sDone. (%.3fs)' % (s, t2 - t1))
     
-    return im0
+    return
 
 def main():
     global dataset
